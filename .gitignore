@@ -1,25 +1,19 @@
-# PyCharm
-.idea/
-**/.idea/
-
 # Python
 __pycache__/
-**/__pycache__/
 *.pyc
 
-# Virtual Env
+# venv
 .venv/
-.venv1/
 venv/
 
-# Dataset
-*.csv
+# IDEA
+.idea/
+
+# build
+dist/
+build/
+
+# datasets
 *.bz2
 *.model
-
-# ML files
-*.pt
-*.pth
-
-# Jupyter
-.ipynb_checkpoints/
+*.csv
