@@ -1,19 +1,44 @@
+# 把下面内容一次性写入 .gitignore
+@"
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
-# venv
+# Virtual Environment
 .venv/
 venv/
+ENV/
 
-# IDEA
+# Jupyter Notebook
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# IDE
 .idea/
+.vscode/
+*.swp
+*.swo
 
-# build
+# Build / Distribution
 dist/
 build/
+*.egg-info/
 
-# datasets
-*.bz2
-*.model
+# Data files
 *.csv
+*.xlsx
+*.xls
+*.parquet
+LLM_Learn/Data02/**/data/
+**/data/
+
+# Logs and temp
+*.log
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+"@ | Out-File -FilePath .gitignore -Encoding utf8
