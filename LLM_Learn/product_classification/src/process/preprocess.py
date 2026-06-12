@@ -46,6 +46,7 @@ def preprocess():
     def encode(batch):
         inputs = tokenizer(batch['text_a'],truncation=True)
         inputs['labels'] = batch['label']
+        # print('inputs:',type(inputs),'inputs[:1]',inputs[:1])
         return inputs
 
     dataset_dict = dataset_dict.map(encode,batched=True,remove_columns=['label','text_a'])

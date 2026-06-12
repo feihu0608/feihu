@@ -33,7 +33,11 @@ class TrainConfig:
 
     # 模型保存和早停配置
     early_stop_metric: str = 'loss'
-    early_stop_patience: int = 2
+    early_stop_patience: int = 5
+
+    # AMP控制参数
+    use_amp: bool = True
+
 
 # 定义训练器
 class Trainer:
@@ -59,6 +63,13 @@ class Trainer:
         self.early_stop_best_score = -float('inf') # 判断保存和早停的指标: 最佳分数(初始最小)
         self.early_stop_counter = 0
 
+        # AMP梯度缩放器
+        self.scaler = torch.amp.GradScaler(device=self.device,enabled=self.train_config.use_amp)
+
+        # 定义模型保存路径
+        self.best_model_path = Path(self.train_config.output_dir) / 'best'
+        self.checkpoint_path = Path(self.train_config.output_dir) / 'last' / 'checkpoint.pt'
+
     # 定义内部函数: 获取数据加载器
     def _get_dataloader(self,dataset):
         dataset.set_format(type='torch')
@@ -78,17 +89,26 @@ class Trainer:
 
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
-        # 1. 前向传播
-        outputs = self.model(**inputs)
+        # AMP上下文
+        with torch.autocast(
+            device_type=self.device.type,
+            dtype=torch.float16,
+            enabled=self.train_config.use_amp
+        ):
 
-        # 2. 计算损失
-        loss = outputs.loss
+            # 1. 前向传播
+            outputs = self.model(**inputs)
+
+            # 2. 计算损失
+            loss = outputs.loss
 
         # 3. 反向传播,计算梯度
-        loss.backward()
+        self.scaler.scale(loss).backward()
 
         # 4. 更新参数
-        self.optimizer.step()
+        self.scaler.step(self.optimizer)
+        self.scaler.update()
+
         self.optimizer.zero_grad()
 
         return loss.item()
@@ -105,7 +125,7 @@ class Trainer:
             self.early_stop_best_score = score
             self.early_stop_counter = 0 # 容忍度计数清零
             tqdm.write("保存模型...")
-            self.model.save_pretrained(self.train_config.output_dir)
+            self.model.save_pretrained(self.best_model_path)
             return False
         else:
             self.early_stop_counter += 1
@@ -140,6 +160,10 @@ class Trainer:
                     if self._should_stop(metrics):
                         tqdm.write(f"Early Stopped")
                         return
+
+                    # 保存检查点
+                    self._save_chectpoint()
+
                 self.step += 1
 
     # 核心方法:评估验证,返回一个字段{'loss': 1.34, 'accuracy': 0.92, 'f1': 0.87}
@@ -172,6 +196,38 @@ class Trainer:
         # 指标2: 其他指标(如accuracy,precision,recall,f1等),返回字典
         metrics = self.compute_metrics_fn(all_predictions,all_labels)
         return {'loss': loss, **metrics}
+
+    # 保存检查点
+    def _save_chectpoint(self):
+        # 定义检查点:所有当前训练转态的字典
+        checkpoint = {
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'scaler_state_dict': self.scaler.state_dict(),
+            'step': self.step,
+            'early_stop_best_score': self.early_stop_best_score,
+            'early_stop_counter': self.early_stop_counter,
+        }
+        torch.save(checkpoint,self.checkpoint_path)
+        tqdm.write(f"Saved Checkpoint")
+
+    # 加载检查点
+    def _load_checkpoint(self):
+        # 判断检查点如果存在,就加载所有状态
+        if self.checkpoint_path.exists():
+            print("发现检查点,继续训练...")
+            # 获取字典对象
+            checkpoint = torch.load(self.checkpoint_path)
+            # 依次加载所有状态
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.scaler.load_state_dict(checkpoint['scaler_state_dict'])
+            self.step = checkpoint['step']
+            self.early_stop_best_score = checkpoint['early_stop_best_score']
+            self.early_stop_counter = checkpoint['early_stop_counter']
+        else:
+            print("没有找到检查点,从头开始训练...")
+
 
 def train():
     print("训练开始...")

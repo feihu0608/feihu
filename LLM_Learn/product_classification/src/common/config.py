@@ -23,10 +23,10 @@ LABELS_FILE = 'labels.txt'
 
 # 3. 训练超参数
 BATCH_SIZE = 32
-EPOCHS = 100
+EPOCHS = 10
 LEARNING_RATE = 1e-5
 
-SAVE_STEPS = 10    # 判断模型保存的频次（迭代批次数）
+SAVE_STEPS = 100    # 判断模型保存的频次（迭代批次数）
 
 
 
