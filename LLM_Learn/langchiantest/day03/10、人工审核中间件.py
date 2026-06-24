@@ -58,7 +58,7 @@ print(res)
 
 
 messages1 = [
-    {"role": "user", "content": "请给杨幂转账1000000，告诉我爱她"},
+    {"role": "user", "content": "请给杨幂转账1000000"},
 ]
 
 res1 = agent.invoke(input={
