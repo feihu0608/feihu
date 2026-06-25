@@ -1,0 +1,105 @@
+import operator
+from typing import Annotated, Any
+
+from langgraph.checkpoint.memory import InMemorySaver
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class State(TypedDict):
+  """
+  状态类型定义
+  """
+  aggregate: Annotated[list, operator.add]
+
+def a(state: State,config):
+  print(f'Adding "A" to {state["aggregate"]}')
+  return {"aggregate": ["A"]}
+
+def b(state: State,config):
+  print(f'Adding "B" to {state["aggregate"]}')
+  return {"aggregate": ["B"]}
+
+def b_2(state: State,config):
+  print(f'Adding "B_2" to {state["aggregate"]}')
+  return {"aggregate": ["B_2"]}
+
+def c(state: State,config):
+  print(f'Adding "C" to {state["aggregate"]}')
+  return {"aggregate": ["C"]}
+
+def d(state: State,config):
+  print(f'Adding "D" to {state["aggregate"]}')
+  return {"aggregate": ["D"]}
+
+builder = StateGraph(State)
+
+builder.add_node("a", a)
+builder.add_node("b", b)
+builder.add_node("b_2", b_2)
+builder.add_node("c", c)
+builder.add_node("d", d)
+
+builder.add_edge(START, "a")
+builder.add_edge("a", "b")
+builder.add_edge("a", "c")
+builder.add_edge("b", "b_2")
+builder.add_edge("b_2", "d")
+builder.add_edge("c", "d")
+builder.add_edge("d", END)
+
+graph = builder.compile(checkpointer=InMemorySaver())
+
+print(graph.nodes)
+print(graph.nodes['a'])
+print(graph.nodes['a'].__dict__)
+print(graph.nodes['c'].__dict__)
+
+# 每个节点里面都包含 数据通道 后期写入数据
+# 自己的节点通道，是为了让上一个节点执行的时候去订阅
+# writers:往数据通道写数据修改state   自动查找边（控制边）  订阅下一次要执行的节点
+
+
+# 打印历史节点
+# 1、要找历史节点，要先执行过后才能保存历史节点
+# 2、要有记忆才能保存历史记录
+
+res = graph.invoke(input={},config={
+    "configurable":{
+        "thread_id":1
+    }
+})
+print(res)
+
+
+res = graph.invoke(input={},config={
+    "configurable":{
+        "thread_id":1
+    }
+})
+print(res)
+
+
+# 打印历史节点
+history_res = graph.get_state_history(config={
+    "configurable":{
+        "thread_id":1
+    }
+})
+# print(history_res)
+
+for history in history_res:
+    print(history)
+
+
+# 打印当前节点信息
+print(graph.get_state(config={
+    "configurable":{
+        "thread_id":1
+    }
+}))
+
+
+
+
+
+
